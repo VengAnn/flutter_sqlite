@@ -1,9 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path/path.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../components/snack_bar.dart';
 import '../utils/formate_datetime.dart';
 
 class SqliteHepler {
@@ -92,45 +95,30 @@ class SqliteHepler {
     }
   }
 
-  // static Future<bool> exportToBackupFile() async {
-  //   try {
-  //     final now = DateTime.now();
-  //     final formattedDate = DateFormatter.format(now, 'dd-MM-yyyy');
-
-  //     final dbPath = await getDatabasesPath();
-  //     final originalPath = '$dbPath/app_local_db.db';
-  //     final backupPath = '$dbPath/${formattedDate}_backup_app_local_db.db';
-
-  //     await File(originalPath).copy(backupPath);
-  //     debugPrint('Database backup created at: $backupPath');
-
-  //     return true;
-  //   } catch (e) {
-  //     debugPrint('Export failed: $e');
-  //     return false;
-  //   }
-  // }
+  // Test real device it export db ok permission but in emulator can't allow permission
   static Future<bool> exportToBackupFile() async {
     try {
       final now = DateTime.now();
       final formattedDate = DateFormatter.format(now, 'dd-MM-yyyy');
 
-      // Original DB path
+      // Original DB path or Get path to current DB
       final dbPath = await getDatabasesPath();
       final originalPath = '$dbPath/app_local_db.db';
 
       late String backupPath;
 
       if (Platform.isAndroid) {
-        debugPrint('Platform is Android');
+        // Request storage permission
+        if (!await _requestPermission()) {
+          debugPrint('Permission denied');
+          return false;
+        }
 
         // Download folder path (hardcoded)
         const downloadsPath = '/storage/emulated/0/Download';
         final backupFileName = '${formattedDate}_backup_app_local_db.db';
         backupPath = '$downloadsPath/$backupFileName';
       } else if (Platform.isIOS) {
-        debugPrint('Platform is iOS');
-
         backupPath = '$dbPath/${formattedDate}_backup_app_local_db.db';
       }
 
@@ -138,11 +126,29 @@ class SqliteHepler {
       debugPrint('✅ Backup successful: $backupPath');
 
       return true;
-    } catch (e) {
-      debugPrint('❌ Export failed: $e');
+    } catch (e, stack) {
+      debugPrint('❌ Export failed: $e ===== $stack');
 
       return false;
     }
+  }
+
+  static Future<bool> _requestPermission() async {
+    if (Platform.isAndroid) {
+      if (await Permission.storage.isGranted) return true;
+
+      // First, try to request storage permission (works on API <30)
+      final status = await Permission.storage.request();
+      if (status.isGranted) return true;
+
+      // If Android 11+, ask for manageExternalStorage too
+      if (await Permission.manageExternalStorage.request().isGranted) {
+        return true;
+      }
+
+      return false; // Permission denied
+    }
+    return true; // iOS or others don't need it
   }
 
   /// Replace DB using manually picked file
