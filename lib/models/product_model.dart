@@ -6,7 +6,8 @@ class ProductModel {
 
   // optional extras
   final String? categoryName;
-  final List<String>? imageUrls;
+  final String? imgUrl;
+  final int? idImg;
 
   ProductModel({
     this.id,
@@ -14,7 +15,8 @@ class ProductModel {
     required this.price,
     this.categoryId,
     this.categoryName,
-    this.imageUrls,
+    this.imgUrl,
+    this.idImg,
   });
 
   factory ProductModel.fromMap(Map<String, dynamic> map) {
@@ -38,7 +40,8 @@ class ProductModel {
     double? price,
     int? categoryId,
     String? categoryName,
-    List<String>? imageUrls,
+    String? imgUrl,
+    int? idImg,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -46,7 +49,8 @@ class ProductModel {
       price: price ?? this.price,
       categoryId: categoryId ?? this.categoryId,
       categoryName: categoryName ?? this.categoryName,
-      imageUrls: imageUrls ?? this.imageUrls,
+      imgUrl: imgUrl ?? this.imgUrl,
+      idImg: idImg ?? this.idImg,
     );
   }
 }

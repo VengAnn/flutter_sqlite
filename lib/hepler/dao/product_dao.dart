@@ -6,12 +6,12 @@ import '../sqlite_hepler.dart';
 // DAO (Data Access Object)
 class ProductDAO {
   Future<int> insertProduct(ProductModel product) async {
-    final db = await SqliteHepler().database;
+    final db = await SqliteHepler.database;
     return await db.insert('product', product.toMap());
   }
 
   Future<void> insertSampleData() async {
-    final db = await SqliteHepler().database;
+    final db = await SqliteHepler.database;
     // await SqliteHepler().resetDatabase();
 
     // Insert category
@@ -59,54 +59,64 @@ class ProductDAO {
 
   // get all products with related category and images
   Future<List<ProductModel>> getAllProductsWithDetails() async {
-    final db = await SqliteHepler().database;
+    final db = await SqliteHepler.database;
 
-    // 1. Join product with category and product_image
     final result = await db.rawQuery('''
-                SELECT p.*, c.name AS category_name
-                FROM product p
-                LEFT JOIN category c ON p.category_id = c.id
-                LEFT JOIN product_image pi ON p.id = pi.product_id
-                ORDER BY p.id
-              ''');
+    SELECT p.*, c.name AS category_name
+    FROM product p
+    LEFT JOIN category c ON p.category_id = c.id
+    ORDER BY p.id
+  ''');
 
-    // 2. For each product, fetch its images
     List<ProductModel> products = [];
+
     for (var row in result) {
       final productId = row['id'] as int;
 
-      final imageRows = await db.query(
+      // ✅ Get only 1 image for this product (first one found)
+      final imageRow = await db.query(
         'product_image',
         where: 'product_id = ?',
         whereArgs: [productId],
+        limit: 1,
       );
 
-      final imageUrls = imageRows.map((e) => e['image_url'] as String).toList();
+      String? imageUrl;
+      int? imageId;
+
+      if (imageRow.isNotEmpty) {
+        imageUrl = imageRow.first['image_url'] as String;
+        imageId = imageRow.first['id'] as int;
+      }
 
       final product = ProductModel.fromMap(row).copyWith(
-        imageUrls: imageUrls,
-        categoryName: row['category_name'] as String,
+        imgUrl: imageUrl,
+        idImg: imageId,
+        categoryName: row['category_name'] as String?,
       );
+
       products.add(product);
     }
+
     return products;
   }
 
   Future<List<ProductModel>> getAllProducts() async {
-    final db = await SqliteHepler().database;
+    final db = await SqliteHepler.database;
     final result = await db.query('product');
+
     return result.map((e) => ProductModel.fromMap(e)).toList();
   }
 
   Future<ProductModel?> getProductById(int id) async {
-    final db = await SqliteHepler().database;
+    final db = await SqliteHepler.database;
     final result = await db.query('product', where: 'id = ?', whereArgs: [id]);
     if (result.isNotEmpty) return ProductModel.fromMap(result.first);
     return null;
   }
 
   Future<int> updateProduct(ProductModel product) async {
-    final db = await SqliteHepler().database;
+    final db = await SqliteHepler.database;
     return await db.update(
       'product',
       product.toMap(),
@@ -116,7 +126,7 @@ class ProductDAO {
   }
 
   Future<int> deleteProduct(int id) async {
-    final db = await SqliteHepler().database;
+    final db = await SqliteHepler.database;
     return await db.delete('product', where: 'id = ?', whereArgs: [id]);
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_sqlite/pages/test_fetch_image_from_google.dart';
+import 'package:flutter_sqlite/pages/product_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,7 +15,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter SQLite Clean Example',
-      home: TestFetchImageFromGoogle(),
+      // home: TestFetchImageFromGoogle(),
+      home: ProductPage(),
     );
   }
 }

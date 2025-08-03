@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter_sqlite/components/snack_bar.dart';
 import 'package:flutter_sqlite/models/product_model.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_sqlite/models/product_model.dart';
 import '../components/animation_loading.dart';
 import '../hepler/dao/product_dao.dart';
 import '../hepler/file_picker/file_picker_helper.dart';
+import '../hepler/sqlite_hepler.dart';
 import 'add_edit_product.dart';
 
 class ProductPage extends StatefulWidget {
@@ -22,6 +25,8 @@ class _ProductPageState extends State<ProductPage> {
   @override
   void initState() {
     super.initState();
+    // _productDAO.insertSampleData();
+    // SqliteHepler.resetDatabase();
 
     _loadProducts();
   }
@@ -51,9 +56,7 @@ class _ProductPageState extends State<ProductPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Product Page Example')),
       body: _isLoading
-          ? Center(
-              child: AnimatedCircularProgress(),
-            )
+          ? Center(child: AnimatedCircularProgress())
           : _productGl.isEmpty
           ? const Center(child: Text('No products available'))
           : ListView.builder(
@@ -62,14 +65,15 @@ class _ProductPageState extends State<ProductPage> {
                 final product = _productGl[index];
 
                 return ExpansionTile(
+                  // leading: Text('${product.idImg}'),
                   title: Text(product.name),
                   subtitle: Text('\$${product.price.toStringAsFixed(2)}'),
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Image.network(
-                        product.imageUrls!.isNotEmpty
-                            ? product.imageUrls!.first
+                        product.imgUrl!.isNotEmpty
+                            ? product.imgUrl!
                             : 'https://via.placeholder.com/150',
                         height: 150,
                         width: 150,
@@ -85,14 +89,27 @@ class _ProductPageState extends State<ProductPage> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           IconButton(
-                            onPressed: () {
-                              debugPrint('Edit ${product.name}');
+                            onPressed: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      AddEditProductPage(product: product),
+                                ),
+                              );
+
+                              if (result == true) {
+                                // reload
+                                _loadProducts();
+                              }
+                              // debugPrint('Edit ${product.name}');
                             },
                             icon: const Icon(Icons.edit),
                           ),
                           IconButton(
                             onPressed: () {
-                              debugPrint('Delete ${product.name}');
+                              // debugPrint('Delete ${product.name}');
+                              // _productDAO.deleteProduct(product.id!);
                             },
                             icon: const Icon(Icons.delete),
                           ),
@@ -127,8 +144,14 @@ class _ProductPageState extends State<ProductPage> {
           // btn to export sqlite db
           FloatingActionButton(
             heroTag: 'exportDB',
-            onPressed: () {
-              SnackBarCmp.show(context: context, message: 'Export SQLite DB');
+            onPressed: () async {
+              final success = await SqliteHepler.exportToBackupFile();
+
+              if (success) {
+                SnackBarCmp.show(context: context, message: 'Backup success');
+              } else {
+                SnackBarCmp.show(context: context, message: 'Backup failed');
+              }
             },
             child: const Icon(Icons.save_alt),
           ),
@@ -136,9 +159,15 @@ class _ProductPageState extends State<ProductPage> {
           // btn to import sqlite db
           FloatingActionButton(
             heroTag: 'importDB',
-            onPressed: () {
-              SnackBarCmp.show(context: context, message: 'Import SQLite DB!');
-              FilePickerHelper.openFilePicker();
+            onPressed: () async {
+              final success = await FilePickerHelper.pickAndImportDatabase();
+              if (success) {
+                SnackBarCmp.show(context: context, message: 'Import success');
+
+                _loadProducts();
+              } else {
+                SnackBarCmp.show(context: context, message: 'Import failed');
+              }
             },
             child: const Icon(Icons.folder),
           ),

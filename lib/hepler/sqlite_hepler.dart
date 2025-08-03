@@ -4,6 +4,8 @@ import 'package:flutter/rendering.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../utils/formate_datetime.dart';
+
 class SqliteHepler {
   // Singleton pattern to ensure only one instance of the database helper
   static final SqliteHepler _instance = SqliteHepler._internal();
@@ -12,18 +14,19 @@ class SqliteHepler {
 
   static Database? _db;
 
-  Future<Database> get database async {
+  static Future<Database> get database async {
     return _db ?? await _initDB();
   }
 
-  Future<Database> _initDB() async {
+  static Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'app_local_db.db');
 
+    // debugPrint('Database path: $path');
     return await openDatabase(path, version: 1, onCreate: _onCreateDB);
   }
 
-  Future<void> _onCreateDB(Database db, int version) async {
+  static Future<void> _onCreateDB(Database db, int version) async {
     // table category
     await db.execute('''
       CREATE TABLE category(
@@ -55,14 +58,13 @@ class SqliteHepler {
   }
 
   // Reset the database tables
-  Future<void> resetDatabase() async {
+  static Future<void> resetDatabase() async {
     final db = await database;
     await db.execute('DROP TABLE IF EXISTS product_image');
     await db.execute('DROP TABLE IF EXISTS product');
     await db.execute('DROP TABLE IF EXISTS category');
     await _onCreateDB(db, 1);
-
-    debugPrint('Database tables reset and recreated.');
+    debugPrint('Database reset successfully.');
   }
 
   // Delete the database file
@@ -74,6 +76,7 @@ class SqliteHepler {
     if (await file.exists()) {
       await file.delete();
       _db = null;
+
       debugPrint('Database file deleted: $path');
     } else {
       debugPrint('Database file not found at: $path');
@@ -89,42 +92,85 @@ class SqliteHepler {
     }
   }
 
-  static Future<void> exportDatabase() async {
+  // static Future<bool> exportToBackupFile() async {
+  //   try {
+  //     final now = DateTime.now();
+  //     final formattedDate = DateFormatter.format(now, 'dd-MM-yyyy');
+
+  //     final dbPath = await getDatabasesPath();
+  //     final originalPath = '$dbPath/app_local_db.db';
+  //     final backupPath = '$dbPath/${formattedDate}_backup_app_local_db.db';
+
+  //     await File(originalPath).copy(backupPath);
+  //     debugPrint('Database backup created at: $backupPath');
+
+  //     return true;
+  //   } catch (e) {
+  //     debugPrint('Export failed: $e');
+  //     return false;
+  //   }
+  // }
+  static Future<bool> exportToBackupFile() async {
     try {
+      final now = DateTime.now();
+      final formattedDate = DateFormatter.format(now, 'dd-MM-yyyy');
+
+      // Original DB path
       final dbPath = await getDatabasesPath();
-      final dbFile = File(join(dbPath, 'app_local_db.db'));
+      final originalPath = '$dbPath/app_local_db.db';
 
-      // Export path: for example, app documents directory manually specified on Android/iOS
-      final exportPath = join(dbPath, 'backup_app_local_db.db');
-      final exportFile = File(exportPath);
+      late String backupPath;
 
-      await exportFile.writeAsBytes(await dbFile.readAsBytes());
+      if (Platform.isAndroid) {
+        debugPrint('Platform is Android');
 
-      debugPrint('Database exported to: $exportPath');
+        // Download folder path (hardcoded)
+        const downloadsPath = '/storage/emulated/0/Download';
+        final backupFileName = '${formattedDate}_backup_app_local_db.db';
+        backupPath = '$downloadsPath/$backupFileName';
+      } else if (Platform.isIOS) {
+        debugPrint('Platform is iOS');
+
+        backupPath = '$dbPath/${formattedDate}_backup_app_local_db.db';
+      }
+
+      await File(originalPath).copy(backupPath);
+      debugPrint('✅ Backup successful: $backupPath');
+
+      return true;
     } catch (e) {
-      debugPrint('Export failed: $e');
+      debugPrint('❌ Export failed: $e');
+
+      return false;
     }
   }
 
-  static Future<void> importDatabase() async {
+  /// Replace DB using manually picked file
+  static Future<bool> importFromPickedFile(String pickedFilePath) async {
     try {
+      // Get the path where the app's database is stored on the device
       final dbPath = await getDatabasesPath();
-      final originalDbFile = File(join(dbPath, 'app_local_db.db'));
 
-      // This is the backup file path you exported before
-      final backupFile = File(join(dbPath, 'backup_app_local_db.db'));
+      // Define the destination path where the database should be replaced
+      final destPath = '$dbPath/app_local_db.db';
 
-      if (await backupFile.exists()) {
-        await originalDbFile.writeAsBytes(
-          await backupFile.readAsBytes(),
-          flush: true,
-        );
-        debugPrint('Database imported from: ${backupFile.path}');
-      } else {
-        debugPrint('Backup file not found at: ${backupFile.path}');
-      }
+      // Check if the picked file actually exists
+      if (!await File(pickedFilePath).exists()) return false;
+
+      // Close the current open database connection to avoid file lock issues
+      await closeDB();
+
+      // Copy the picked file to replace the current database
+      await File(pickedFilePath).copy(destPath);
+
+      // Re-initialize or reopen the database connection
+      await database;
+
+      return true;
     } catch (e) {
-      debugPrint('Import failed: $e');
+      debugPrint('Import from picked file failed: $e');
+
+      return false;
     }
   }
 }

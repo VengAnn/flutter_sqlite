@@ -13,8 +13,6 @@ class TestFetchImageFromGoogle extends StatefulWidget {
 class _TestFetchImageFromGoogleState extends State<TestFetchImageFromGoogle> {
   late final WebViewController _webViewController;
   String? selectedImageUrl;
-  final TextEditingController _searchController =
-      TextEditingController(text: "cat"); // default search term
 
   @override
   void initState() {

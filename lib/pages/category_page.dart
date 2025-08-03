@@ -46,9 +46,11 @@ class _CategoryPageState extends State<CategoryPage> {
     bool edit = false,
     CategoryModel? category,
   }) {
-    final TextEditingController newEditCatory = TextEditingController(
-      text: edit ? category!.name : _cateogryName.text.trim(),
-    );
+    if (edit && category != null) {
+      _cateogryName.text = category.name;
+    } else {
+      _cateogryName.clear();
+    }
 
     DialogCmp.showCustomDialog(
       context: context,
@@ -58,41 +60,49 @@ class _CategoryPageState extends State<CategoryPage> {
         child: Column(
           children: [
             TextFormField(
-              controller: newEditCatory,
-              decoration: InputDecoration(
-                labelText: edit ? "" : "Enter category name",
-              ),
+              controller: _cateogryName,
+              decoration: InputDecoration(labelText: "Category Name"),
             ),
-            //
-            Spacer(),
-            // btn add
+            const Spacer(),
             ElevatedButton(
               onPressed: () async {
+                final name = _cateogryName.text.trim();
+                if (name.isEmpty) {
+                  SnackBarCmp.show(
+                    message: 'Please enter a category name',
+                    context: context,
+                  );
+                  return;
+                }
+
                 if (edit) {
                   final updatedCate = CategoryModel(
                     id: category!.id,
-                    name: newEditCatory.text.trim(),
+                    name: name,
                   );
-                  await _categoryDAO.updateCategory(updatedCate).then((value) {
-                    if (value > 0) {
-                      Navigator.pop(context);
 
-                      SnackBarCmp.show(
-                        message: 'edit category ok',
-                        context: context,
-                      );
-                    }
-                  });
+                  final value = await _categoryDAO.updateCategory(updatedCate);
+                  if (value > 0) {
+                    _loadCategory();
+
+                    Navigator.pop(context, true);
+                    SnackBarCmp.show(
+                      message: 'Category updated successfully',
+                      context: context,
+                    );
+                  }
                 } else {
-                  final newCate = CategoryModel(
-                    name: _cateogryName.text.trim(),
-                  );
+                  final newCate = CategoryModel(name: name);
+                  final value = await _categoryDAO.insertCategory(newCate);
+                  if (value > 0) {
+                    _loadCategory();
 
-                  await _categoryDAO.insertCategory(newCate).then((value) {
-                    if (value > 0) {
-                      Navigator.pop(context);
-                    }
-                  });
+                    Navigator.pop(context, true);
+                    SnackBarCmp.show(
+                      message: 'Category added successfully',
+                      context: context,
+                    );
+                  }
                 }
               },
               child: Icon(edit ? Icons.edit : Icons.add),
@@ -124,6 +134,12 @@ class _CategoryPageState extends State<CategoryPage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pop(context, true);
+          },
+          icon: Icon(Icons.arrow_back),
+        ),
         title: Text("Category Page"),
         actions: [
           IconButton(
