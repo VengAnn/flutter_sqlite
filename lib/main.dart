@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_sqlite/pages/product_page.dart';
 
-import 'pages/test_fetch_image_from_google.dart';
+import 'pages/product_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
